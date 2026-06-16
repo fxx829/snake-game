@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>贪吃蛇</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101412;
+      --panel: #18201c;
+      --panel-2: #202a24;
+      --line: #314136;
+      --text: #f3f7ef;
+      --muted: #aab6a8;
+      --accent: #8bd34f;
+      --accent-2: #ffcf56;
+      --danger: #ff6b6b;
+      --shadow: rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(139, 211, 79, 0.16), transparent 28%),
+        linear-gradient(135deg, #101412 0%, #1b2420 48%, #121816 100%);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .game {
+      width: min(1040px, 100%);
+      display: grid;
+      grid-template-columns: minmax(300px, 1fr) 280px;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .board-shell,
+    .side {
+      background: rgba(24, 32, 28, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 22px 50px var(--shadow);
+    }
+
+    .board-shell {
+      display: grid;
+      place-items: center;
+      min-height: 0;
+      padding: clamp(12px, 2.8vw, 26px);
+      border-radius: 8px;
+    }
+
+    canvas {
+      width: min(72vmin, 100%);
+      aspect-ratio: 1;
+      background: #0d120f;
+      border: 1px solid #344239;
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+      touch-action: none;
+    }
+
+    .side {
+      border-radius: 8px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 7px;
+    }
+
+    .value {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+
+    button,
+    select {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #202a24;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button {
+      font-weight: 750;
+      transition: transform 130ms ease, border-color 130ms ease, background 130ms ease;
+    }
+
+    button:hover,
+    select:hover {
+      border-color: rgba(139, 211, 79, 0.7);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    .primary {
+      background: linear-gradient(180deg, #9ae15f, #6fb939);
+      color: #12200e;
+      border-color: #9ae15f;
+    }
+
+    .danger {
+      color: #ffe7e7;
+      border-color: rgba(255, 107, 107, 0.55);
+    }
+
+    .hint {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    .pad {
+      margin-top: auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 48px);
+      gap: 8px;
+    }
+
+    .pad button {
+      min-height: 0;
+      font-size: 22px;
+      background: #243028;
+    }
+
+    .pad .up {
+      grid-column: 2;
+    }
+
+    .pad .left {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .pad .right {
+      grid-column: 3;
+      grid-row: 2;
+    }
+
+    .pad .down {
+      grid-column: 2;
+      grid-row: 3;
+    }
+
+    .message {
+      min-height: 42px;
+      color: var(--accent-2);
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 12px;
+        align-items: start;
+      }
+
+      .game {
+        grid-template-columns: 1fr;
+      }
+
+      .side {
+        order: -1;
+      }
+
+      canvas {
+        width: min(94vw, 72vh);
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="game" aria-label="贪吃蛇游戏">
+    <section class="board-shell">
+      <canvas id="board" width="640" height="640" aria-label="游戏棋盘"></canvas>
+    </section>
+
+    <aside class="side">
+      <h1>贪吃蛇</h1>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="label">分数</div>
+          <div class="value" id="score">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">最高分</div>
+          <div class="value" id="best">0</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <select id="speed" aria-label="难度">
+          <option value="150">轻松</option>
+          <option value="110" selected>标准</option>
+          <option value="78">疾速</option>
+        </select>
+        <button class="primary" id="start">开始</button>
+        <button id="pause">暂停</button>
+        <button class="danger" id="reset">重开</button>
+      </div>
+
+      <div class="message" id="message">按开始，或直接按方向键开局。</div>
+
+      <div class="hint">方向键 / WASD 控制移动，空格暂停。手机上可滑动棋盘或使用方向按钮。</div>
+
+      <div class="pad" aria-label="触屏方向键">
+        <button class="up" data-dir="up" aria-label="向上">▲</button>
+        <button class="left" data-dir="left" aria-label="向左">◀</button>
+        <button class="right" data-dir="right" aria-label="向右">▶</button>
+        <button class="down" data-dir="down" aria-label="向下">▼</button>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const canvas = document.querySelector("#board");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.querySelector("#score");
+    const bestEl = document.querySelector("#best");
+    const messageEl = document.querySelector("#message");
+    const speedEl = document.querySelector("#speed");
+    const startBtn = document.querySelector("#start");
+    const pauseBtn = document.querySelector("#pause");
+    const resetBtn = document.querySelector("#reset");
+
+    const gridSize = 20;
+    const cellSize = canvas.width / gridSize;
+    const keys = {
+      ArrowUp: "up",
+      w: "up",
+      W: "up",
+      ArrowDown: "down",
+      s: "down",
+      S: "down",
+      ArrowLeft: "left",
+      a: "left",
+      A: "left",
+      ArrowRight: "right",
+      d: "right",
+      D: "right"
+    };
+    const vectors = {
+      up: { x: 0, y: -1 },
+      down: { x: 0, y: 1 },
+      left: { x: -1, y: 0 },
+      right: { x: 1, y: 0 }
+    };
+    const opposite = {
+      up: "down",
+      down: "up",
+      left: "right",
+      right: "left"
+    };
+
+    let snake;
+    let food;
+    let direction;
+    let nextDirection;
+    let score;
+    let best = Number(localStorage.getItem("snake-best") || 0);
+    let timer = null;
+    let running = false;
+    let paused = false;
+
+    bestEl.textContent = best;
+
+    function resetState() {
+      snake = [
+        { x: 9, y: 10 },
+        { x: 8, y: 10 },
+        { x: 7, y: 10 }
+      ];
+      direction = "right";
+      nextDirection = "right";
+      score = 0;
+      placeFood();
+      updateScore();
+      draw();
+      messageEl.textContent = "准备好了。";
+    }
+
+    function startGame() {
+      if (running && !paused) return;
+      if (!running) resetState();
+      running = true;
+      paused = false;
+      messageEl.textContent = "开吃！";
+      startBtn.textContent = "继续";
+      runLoop();
+    }
+
+    function runLoop() {
+      clearInterval(timer);
+      timer = setInterval(tick, Number(speedEl.value));
+    }
+
+    function pauseGame() {
+      if (!running) return;
+      paused = !paused;
+      messageEl.textContent = paused ? "已暂停。" : "继续。";
+      if (paused) {
+        clearInterval(timer);
+      } else {
+        runLoop();
+      }
+    }
+
+    function endGame() {
+      clearInterval(timer);
+      timer = null;
+      running = false;
+      paused = false;
+      startBtn.textContent = "开始";
+      messageEl.textContent = "撞到了，按开始再来一局。";
+      draw(true);
+    }
+
+    function tick() {
+      direction = nextDirection;
+      const head = snake[0];
+      const move = vectors[direction];
+      const next = { x: head.x + move.x, y: head.y + move.y };
+
+      if (next.x < 0 || next.x >= gridSize || next.y < 0 || next.y >= gridSize || hitsSnake(next)) {
+        endGame();
+        return;
+      }
+
+      snake.unshift(next);
+
+      if (next.x === food.x && next.y === food.y) {
+        score += 10;
+        updateScore();
+        placeFood();
+      } else {
+        snake.pop();
+      }
+
+      draw();
+    }
+
+    function hitsSnake(pos) {
+      return snake.some(part => part.x === pos.x && part.y === pos.y);
+    }
+
+    function placeFood() {
+      do {
+        food = {
+          x: Math.floor(Math.random() * gridSize),
+          y: Math.floor(Math.random() * gridSize)
+        };
+      } while (snake && hitsSnake(food));
+    }
+
+    function updateScore() {
+      scoreEl.textContent = score;
+      if (score > best) {
+        best = score;
+        bestEl.textContent = best;
+        localStorage.setItem("snake-best", String(best));
+      }
+    }
+
+    function setDirection(dir) {
+      if (!dir || opposite[dir] === direction) return;
+      nextDirection = dir;
+      if (!running) startGame();
+    }
+
+    function draw(gameOver = false) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      drawFood();
+      drawSnake();
+
+      if (gameOver) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#fff3cf";
+        ctx.font = "700 44px Microsoft YaHei, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("游戏结束", canvas.width / 2, canvas.height / 2);
+      }
+    }
+
+    function drawGrid() {
+      ctx.fillStyle = "#0d120f";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.045)";
+      ctx.lineWidth = 1;
+      for (let i = 1; i < gridSize; i += 1) {
+        const p = i * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(p, 0);
+        ctx.lineTo(p, canvas.height);
+        ctx.moveTo(0, p);
+        ctx.lineTo(canvas.width, p);
+        ctx.stroke();
+      }
+    }
+
+    function drawSnake() {
+      snake.forEach((part, index) => {
+        const inset = index === 0 ? 3 : 5;
+        const x = part.x * cellSize + inset;
+        const y = part.y * cellSize + inset;
+        const size = cellSize - inset * 2;
+        ctx.fillStyle = index === 0 ? "#b9f76f" : "#73c94a";
+        roundRect(x, y, size, size, 7);
+        ctx.fill();
+
+        if (index === 0) {
+          ctx.fillStyle = "#173012";
+          const eyeSize = 4;
+          const eyeA = eyePositions(part, eyeSize);
+          ctx.fillRect(eyeA[0].x, eyeA[0].y, eyeSize, eyeSize);
+          ctx.fillRect(eyeA[1].x, eyeA[1].y, eyeSize, eyeSize);
+        }
+      });
+    }
+
+    function eyePositions(part, eyeSize) {
+      const baseX = part.x * cellSize;
+      const baseY = part.y * cellSize;
+      const near = 9;
+      const far = cellSize - 13;
+      if (direction === "up") return [{ x: baseX + near, y: baseY + 8 }, { x: baseX + far, y: baseY + 8 }];
+      if (direction === "down") return [{ x: baseX + near, y: baseY + far }, { x: baseX + far, y: baseY + far }];
+      if (direction === "left") return [{ x: baseX + 8, y: baseY + near }, { x: baseX + 8, y: baseY + far }];
+      return [{ x: baseX + far, y: baseY + near }, { x: baseX + far, y: baseY + far }];
+    }
+
+    function drawFood() {
+      const centerX = food.x * cellSize + cellSize / 2;
+      const centerY = food.y * cellSize + cellSize / 2;
+      ctx.fillStyle = "#ffcf56";
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, cellSize * 0.34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff1a8";
+      ctx.beginPath();
+      ctx.arc(centerX - 4, centerY - 5, cellSize * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function roundRect(x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + width, y, x + width, y + height, radius);
+      ctx.arcTo(x + width, y + height, x, y + height, radius);
+      ctx.arcTo(x, y + height, x, y, radius);
+      ctx.arcTo(x, y, x + width, y, radius);
+      ctx.closePath();
+    }
+
+    startBtn.addEventListener("click", startGame);
+    pauseBtn.addEventListener("click", pauseGame);
+    resetBtn.addEventListener("click", () => {
+      clearInterval(timer);
+      running = false;
+      paused = false;
+      startBtn.textContent = "开始";
+      resetState();
+    });
+    speedEl.addEventListener("change", () => {
+      if (running && !paused) runLoop();
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.code === "Space") {
+        event.preventDefault();
+        pauseGame();
+        return;
+      }
+      const dir = keys[event.key];
+      if (dir) {
+        event.preventDefault();
+        setDirection(dir);
+      }
+    });
+
+    document.querySelectorAll("[data-dir]").forEach(button => {
+      button.addEventListener("click", () => setDirection(button.dataset.dir));
+    });
+
+    let touchStart = null;
+    canvas.addEventListener("pointerdown", event => {
+      touchStart = { x: event.clientX, y: event.clientY };
+    });
+    canvas.addEventListener("pointerup", event => {
+      if (!touchStart) return;
+      const dx = event.clientX - touchStart.x;
+      const dy = event.clientY - touchStart.y;
+      touchStart = null;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+      setDirection(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
+    });
+
+    resetState();
+  </script>
+</body>
+</html>
