@@ -1,4 +1,5 @@
-# snake-game
- creat something by Codex
- https://fxx829.github.io/snake-game/
- If the game interface is not displayed, please refresh
+# Snake Game
+
+Created by Codex.<br>
+Play online: https://fxx829.github.io/snake-game/<br>
+If the game interface does not appear, please refresh the page.
